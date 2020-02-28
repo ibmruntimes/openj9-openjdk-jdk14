@@ -221,7 +221,7 @@ endif
 ifeq (true,$(OPENJ9_ENABLE_JITSERVER))
   FEATURE_SED_SCRIPT += $(call SedEnable,opt_jitserver)
 else
-  FEATURE_SED_SCRIPT += $(call SedEnable,opt_jitserver)
+  FEATURE_SED_SCRIPT += $(call SedDisable,opt_jitserver)
 endif
 
 # Disable windows rebase.
