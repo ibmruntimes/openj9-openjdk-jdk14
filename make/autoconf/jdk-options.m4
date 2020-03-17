@@ -23,6 +23,10 @@
 # questions.
 #
 
+# ===========================================================================
+# (c) Copyright IBM Corp. 2020, 2020 All Rights Reserved
+# ===========================================================================
+
 ###############################################################################
 # Check which variant of the JDK that we want to build.
 # Currently we have:
@@ -298,22 +302,12 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_DEBUG_SYMBOLS],
       [AS_HELP_STRING([--with-native-debug-symbols],
       [set the native debug symbol configuration (none, internal, external, zipped) @<:@varying@:>@])],
       [
-        if test "x$OPENJDK_TARGET_OS" = xaix; then
-          if test "x$withval" = xexternal || test "x$withval" = xzipped; then
-            AC_MSG_ERROR([AIX only supports the parameters 'none' and 'internal' for --with-native-debug-symbols])
-          fi
-        fi
       ],
       [
-        if test "x$OPENJDK_TARGET_OS" = xaix; then
-          # AIX doesn't support 'external' so use 'internal' as default
-          with_native_debug_symbols="internal"
+        if test "x$STATIC_BUILD" = xtrue; then
+          with_native_debug_symbols="none"
         else
-          if test "x$STATIC_BUILD" = xtrue; then
-            with_native_debug_symbols="none"
-          else
-            with_native_debug_symbols="external"
-          fi
+          with_native_debug_symbols="external"
         fi
       ])
   NATIVE_DEBUG_SYMBOLS=$with_native_debug_symbols
