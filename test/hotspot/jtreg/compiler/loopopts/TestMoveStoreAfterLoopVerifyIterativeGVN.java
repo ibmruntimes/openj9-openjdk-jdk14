@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2017, 2020, Red Hat, Inc. All rights reserved.
+ * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
@@ -18,22 +19,34 @@
  * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
  * or visit www.oracle.com if you need additional information or have any
  * questions.
+ */
+
+/**
+ * @test
+ * @bug 8238756
+ * @requires vm.debug == true & vm.flavor == "server"
+ * @summary Test which triggers assertion in PhaseIdealLoop::try_move_store_after_loop with -XX:+VerifyIterativeGVN due to dead hook.
  *
+ * @run main/othervm -Xbatch -XX:+VerifyIterativeGVN compiler.loopopts.TestMoveStoreAfterLoopVerifyIterativeGVN
  */
 
-/* @test TestCodeCacheRootStyles
- * @key gc
- * @requires vm.gc.Shenandoah & !vm.graal.enabled
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=0 TestCodeCacheRootStyles
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=1 TestCodeCacheRootStyles
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=2 TestCodeCacheRootStyles
- */
+package compiler.loopopts;
 
-public class TestCodeCacheRootStyles {
-    public static void main(String[] args) {
-        // Bug should crash before we get here.
+public class TestMoveStoreAfterLoopVerifyIterativeGVN {
+
+    private static int[] iArr = new int[10];
+
+    static void test() {
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j <= 10; j++) {
+                iArr[i] = j;
+            }
+        }
+    }
+
+    static public void main(String[] args) {
+        for (int i = 0; i < 1000; i++) {
+            test();
+        }
     }
 }

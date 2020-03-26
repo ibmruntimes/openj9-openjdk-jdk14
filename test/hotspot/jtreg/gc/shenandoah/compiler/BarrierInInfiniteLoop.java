@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2017, 2020, Red Hat, Inc. All rights reserved.
+ * Copyright (c) 2020, Red Hat, Inc. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
@@ -18,22 +19,33 @@
  * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
  * or visit www.oracle.com if you need additional information or have any
  * questions.
+ */
+
+/**
+ * @test
+ * @bug 8237837
+ * @summary  Shenandoah: assert(mem == __null) failed: only one safepoint
+ * @key gc
+ * @requires vm.flavor == "server"
+ * @requires vm.gc.Shenandoah & !vm.graal.enabled
+ *
+ * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UseShenandoahGC -Xcomp -XX:CompileOnly=BarrierInInfiniteLoop::test -XX:CompileCommand=quiet BarrierInInfiniteLoop
  *
  */
 
-/* @test TestCodeCacheRootStyles
- * @key gc
- * @requires vm.gc.Shenandoah & !vm.graal.enabled
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=0 TestCodeCacheRootStyles
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=1 TestCodeCacheRootStyles
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=2 TestCodeCacheRootStyles
- */
+public class BarrierInInfiniteLoop {
+    private static Object field1 = new Object();
+    private static Object field2 = new Object();
 
-public class TestCodeCacheRootStyles {
     public static void main(String[] args) {
-        // Bug should crash before we get here.
+        test(false);
+    }
+
+    private static void test(boolean flag) {
+        if (flag) {
+            for (;;) {
+                field1 = field2;
+            }
+        }
     }
 }

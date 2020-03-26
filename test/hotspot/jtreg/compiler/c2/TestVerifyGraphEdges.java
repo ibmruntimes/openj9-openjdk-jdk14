@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2017, 2020, Red Hat, Inc. All rights reserved.
+ * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
@@ -18,22 +19,19 @@
  * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
  * or visit www.oracle.com if you need additional information or have any
  * questions.
+ */
+
+/*
+ * @test
+ * @bug 8238811
+ * @requires vm.debug == true & vm.flavor == "server"
+ * @summary Run with -Xcomp to test -XX:+VerifyGraphEdges in debug builds.
  *
+ * @run main/othervm -Xbatch -Xcomp -XX:+VerifyGraphEdges compiler.c2.TestVerifyGraphEdges
  */
+package compiler.c2;
 
-/* @test TestCodeCacheRootStyles
- * @key gc
- * @requires vm.gc.Shenandoah & !vm.graal.enabled
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=0 TestCodeCacheRootStyles
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=1 TestCodeCacheRootStyles
- * @run main/othervm -XX:+UnlockExperimentalVMOptions -XX:+UnlockDiagnosticVMOptions
- *                   -XX:+UseShenandoahGC -XX:ShenandoahCodeRootsStyle=2 TestCodeCacheRootStyles
- */
-
-public class TestCodeCacheRootStyles {
+public class TestVerifyGraphEdges {
     public static void main(String[] args) {
-        // Bug should crash before we get here.
     }
 }
