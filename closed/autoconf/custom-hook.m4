@@ -54,17 +54,20 @@ AC_DEFUN([OPENJ9_CONFIGURE_CMAKE],
 [
   AC_ARG_WITH(cmake, [AS_HELP_STRING([--with-cmake], [enable building openJ9 with CMake])],
     [
-      if test "x$with_cmake" != x ; then
-        CMAKE=$with_cmake
+      if test "x$with_cmake" == xyes -o "x$with_cmake" == x ; then
+        with_cmake=cmake
       fi
-      with_cmake=yes
+      if test "x$with_cmake" != xno ; then
+        if AS_EXECUTABLE_P(["$with_cmake"]) ; then
+          CMAKE="$with_cmake"
+        else
+          BASIC_REQUIRE_PROGS([CMAKE], [$with_cmake])
+        fi
+        with_cmake=yes
+      fi
     ],
     [with_cmake=no])
   if test "$with_cmake" == yes ; then
-    AC_PATH_PROG([CMAKE], [cmake])
-    if test "x$CMAKE" == x ; then
-      AC_MSG_ERROR([Could not find CMake])
-    fi
     OPENJ9_ENABLE_CMAKE=true
   else
     OPENJ9_ENABLE_CMAKE=false
@@ -77,7 +80,7 @@ AC_DEFUN([OPENJ9_BASIC_SETUP_FUNDAMENTAL_TOOLS],
   BASIC_REQUIRE_PROGS(M4, m4)
 ])
 
-AC_DEFUN_ONCE([OPENJ9_CONFIGURE_WARNINGS],
+AC_DEFUN([OPENJ9_CONFIGURE_WARNINGS],
 [
   AC_ARG_ENABLE([warnings-as-errors-omr], [AS_HELP_STRING([--disable-warnings-as-errors-omr],
       [do not consider OMR compile warnings to be errors @<:@enabled@:>@])])
@@ -114,7 +117,7 @@ AC_DEFUN_ONCE([OPENJ9_CONFIGURE_WARNINGS],
   AC_SUBST(WARNINGS_AS_ERRORS_OPENJ9)
 ])
 
-AC_DEFUN_ONCE([OPENJ9_CONFIGURE_NUMA],
+AC_DEFUN([OPENJ9_CONFIGURE_NUMA],
 [
   if test "x$OPENJDK_TARGET_OS" = xlinux ; then
     if test "x$OPENJDK_TARGET_CPU_ARCH" = xx86 -o "x$OPENJDK_TARGET_CPU_ARCH" = xppc ; then
@@ -270,42 +273,18 @@ AC_DEFUN([OPENJ9_PLATFORM_EXTRACT_VARS_FROM_CPU],
 
 AC_DEFUN([OPENJ9_CONFIGURE_JITSERVER],
 [
-  AC_MSG_CHECKING([for jitserver])
   AC_ARG_ENABLE([jitserver], [AS_HELP_STRING([--enable-jitserver], [enable JITServer support @<:@disabled@:>@])])
+
+  AC_MSG_CHECKING([for jitserver])
   OPENJ9_ENABLE_JITSERVER=false
-
   if test "x$enable_jitserver" = xyes ; then
-    AC_MSG_RESULT([yes (explicitly enabled)])
-
-    if test "x$OPENJDK_TARGET_OS" != xlinux ; then
-      AC_MSG_ERROR([jitserver is unsupported for $OPENJDK_TARGET_OS])
+    if test "x$OPENJDK_TARGET_OS" = xlinux ; then
+      AC_MSG_RESULT([yes (explicitly enabled)])
+      OPENJ9_ENABLE_JITSERVER=true
     else
-      AC_CHECK_PROG(PROTOC_INSTALLED,protoc,yes,no)
-      if test "x$PROTOC_INSTALLED" = xno ; then
-        AC_MSG_ERROR([jitserver requires protoc])
-      else
-        AC_MSG_CHECKING([protobuf version])
-        if test "x$OPENJ9_CPU" = xx86-64 ; then
-          MIN_SUPPORTED_PROTOBUF_VERSION=3.5.1
-        else
-          MIN_SUPPORTED_PROTOBUF_VERSION=3.7.1
-        fi
-
-        PROTOBUF_VERSION=`protoc --version 2>&1 | $SED -e 's/libprotoc //'`
-        AC_MSG_RESULT([$PROTOBUF_VERSION])
-
-        AS_VERSION_COMPARE([$PROTOBUF_VERSION], [$MIN_SUPPORTED_PROTOBUF_VERSION],
-          [PROTOBUF_VERSION_SUPPORTED=no],
-          [PROTOBUF_VERSION_SUPPORTED=yes],
-          [PROTOBUF_VERSION_SUPPORTED=yes])
-        if test "x$PROTOBUF_VERSION_SUPPORTED" = xyes ; then
-          OPENJ9_ENABLE_JITSERVER=true
-        else
-          AC_MSG_ERROR([jitserver requires protobuf version >= ($MIN_SUPPORTED_PROTOBUF_VERSION) for ($OPENJ9_CPU)])
-        fi
-      fi
+      AC_MSG_RESULT([no (unsupported platform)])
+      AC_MSG_ERROR([jitserver is unsupported for $OPENJDK_TARGET_OS])
     fi
-
   elif test "x$enable_jitserver" = xno ; then
     AC_MSG_RESULT([no (explicitly disabled)])
   elif test "x$enable_jitserver" = x ; then
@@ -317,7 +296,7 @@ AC_DEFUN([OPENJ9_CONFIGURE_JITSERVER],
   AC_SUBST(OPENJ9_ENABLE_JITSERVER)
 ])
 
-AC_DEFUN_ONCE([OPENJ9_PLATFORM_SETUP],
+AC_DEFUN([OPENJ9_PLATFORM_SETUP],
 [
   AC_ARG_WITH(noncompressedrefs, [AS_HELP_STRING([--with-noncompressedrefs],
     [build non-compressedrefs vm (large heap)])])
@@ -380,7 +359,7 @@ AC_DEFUN_ONCE([OPENJ9_PLATFORM_SETUP],
   AC_SUBST(OPENJ9_LIBS_SUBDIR)
 ])
 
-AC_DEFUN_ONCE([OPENJDK_VERSION_DETAILS],
+AC_DEFUN([OPENJDK_VERSION_DETAILS],
 [
   OPENJDK_SHA=`git -C $TOPDIR rev-parse --short HEAD`
 
@@ -391,51 +370,53 @@ AC_DEFUN_ONCE([OPENJDK_VERSION_DETAILS],
   AC_SUBST(USERNAME)
 ])
 
-AC_DEFUN_ONCE([OPENJ9_THIRD_PARTY_REQUIREMENTS],
+AC_DEFUN([OPENJ9_THIRD_PARTY_REQUIREMENTS],
 [
   # check 3rd party library requirement for UMA
   AC_MSG_CHECKING([that freemarker location is set])
   AC_ARG_WITH(freemarker-jar, [AS_HELP_STRING([--with-freemarker-jar],
       [path to freemarker.jar (used to build OpenJ9 build tools)])])
 
-  if test "x$with_freemarker_jar" == x ; then
-    AC_MSG_RESULT([no])
-    printf "\n"
-    printf "The FreeMarker library is required to build the OpenJ9 build tools\n"
-    printf "and has to be provided during configure process.\n"
-    printf "\n"
-    printf "Download the FreeMarker library and unpack it into an arbitrary directory:\n"
-    printf "\n"
-    printf "wget https://sourceforge.net/projects/freemarker/files/freemarker/2.3.8/freemarker-2.3.8.tar.gz/download -O freemarker-2.3.8.tar.gz\n"
-    printf "\n"
-    printf "tar -xzf freemarker-2.3.8.tar.gz\n"
-    printf "\n"
-    printf "Then run configure with '--with-freemarker-jar=<freemarker_jar>'\n"
-    printf "\n"
-
-    AC_MSG_NOTICE([Could not find freemarker.jar])
-    AC_MSG_ERROR([Cannot continue])
-  else
-    AC_MSG_RESULT([yes])
-    AC_MSG_CHECKING([checking that '$with_freemarker_jar' exists])
-    if test -f "$with_freemarker_jar" ; then
-      AC_MSG_RESULT([yes])
-    else
+  FREEMARKER_JAR=
+  if test "x$OPENJ9_ENABLE_CMAKE" != xtrue ; then
+    if test "x$with_freemarker_jar" == x -o "x$with_freemarker_jar" == xno ; then
       AC_MSG_RESULT([no])
-      AC_MSG_ERROR([freemarker.jar not found at '$with_freemarker_jar'])
-    fi
-  fi
+      printf "\n"
+      printf "The FreeMarker library is required to build the OpenJ9 build tools\n"
+      printf "and has to be provided during configure process.\n"
+      printf "\n"
+      printf "Download the FreeMarker library and unpack it into an arbitrary directory:\n"
+      printf "\n"
+      printf "wget https://sourceforge.net/projects/freemarker/files/freemarker/2.3.8/freemarker-2.3.8.tar.gz/download -O freemarker-2.3.8.tar.gz\n"
+      printf "\n"
+      printf "tar -xzf freemarker-2.3.8.tar.gz\n"
+      printf "\n"
+      printf "Then run configure with '--with-freemarker-jar=<freemarker_jar>'\n"
+      printf "\n"
 
-  if test "x$OPENJDK_BUILD_OS_ENV" = xwindows.cygwin ; then
-    FREEMARKER_JAR=`$CYGPATH -m "$with_freemarker_jar"`
-  else
-    FREEMARKER_JAR=$with_freemarker_jar
+      AC_MSG_ERROR([Cannot continue])
+    else
+      AC_MSG_RESULT([yes])
+      AC_MSG_CHECKING([checking that '$with_freemarker_jar' exists])
+      if test -f "$with_freemarker_jar" ; then
+        AC_MSG_RESULT([yes])
+      else
+        AC_MSG_RESULT([no])
+        AC_MSG_ERROR([freemarker.jar not found at '$with_freemarker_jar'])
+      fi
+    fi
+
+    if test "x$OPENJDK_BUILD_OS_ENV" = xwindows.cygwin ; then
+      FREEMARKER_JAR=`$CYGPATH -m "$with_freemarker_jar"`
+    else
+      FREEMARKER_JAR=$with_freemarker_jar
+    fi
   fi
 
   AC_SUBST(FREEMARKER_JAR)
 ])
 
-AC_DEFUN_ONCE([OPENJ9_CHECK_NASM_VERSION],
+AC_DEFUN([OPENJ9_CHECK_NASM_VERSION],
 [
   OPENJ9_PLATFORM_EXTRACT_VARS_FROM_CPU($host_cpu)
 
@@ -457,9 +438,9 @@ AC_DEFUN_ONCE([OPENJ9_CHECK_NASM_VERSION],
         AC_MSG_RESULT([yes])
       else
         # NASM version string is of the following format:
-        #  ---
-        #  NASM version 2.14.02 compiled on Dec 27 2018
-        #  ---
+        # ---
+        # NASM version 2.14.02 compiled on Dec 27 2018
+        # ---
         # Some builds may not contain any text after the version number
         #
         # NASM_VERSION is set within square brackets so that the sed expression would not
@@ -519,9 +500,9 @@ AC_DEFUN([CONFIGURE_OPENSSL],
         OPENSSL_DIR="$TOPDIR/openssl"
         OPENSSL_CFLAGS="-I${OPENSSL_DIR}/include"
         if test "x$BUNDLE_OPENSSL" != x ; then
-            if  ! test -s "$OPENSSL_DIR/${LIBRARY_PREFIX}crypto${SHARED_LIBRARY_SUFFIX}" ; then
-                BUILD_OPENSSL=yes
-            fi
+          if ! test -s "$OPENSSL_DIR/${LIBRARY_PREFIX}crypto${SHARED_LIBRARY_SUFFIX}" ; then
+            BUILD_OPENSSL=yes
+          fi
         fi
         if test "x$BUNDLE_OPENSSL" = xyes ; then
           OPENSSL_BUNDLE_LIB_PATH="${OPENSSL_DIR}"
@@ -563,13 +544,13 @@ AC_DEFUN([CONFIGURE_OPENSSL],
       if test -s "$OPENSSL_DIR/include/openssl/evp.h" ; then
         OPENSSL_CFLAGS="-I${OPENSSL_DIR}/include"
         if test "x$OPENJDK_BUILD_OS_ENV" = xwindows.cygwin ; then
-            if test "x$BUNDLE_OPENSSL" = xyes ; then
-              if test -d "$OPENSSL_DIR/bin" ; then
-                OPENSSL_BUNDLE_LIB_PATH="${OPENSSL_DIR}/bin"
-              else
-                OPENSSL_BUNDLE_LIB_PATH="${OPENSSL_DIR}"
-              fi
+          if test "x$BUNDLE_OPENSSL" = xyes ; then
+            if test -d "$OPENSSL_DIR/bin" ; then
+              OPENSSL_BUNDLE_LIB_PATH="${OPENSSL_DIR}/bin"
+            else
+              OPENSSL_BUNDLE_LIB_PATH="${OPENSSL_DIR}"
             fi
+          fi
         else
           if test -s "$OPENSSL_DIR/lib/${LIBRARY_PREFIX}crypto${SHARED_LIBRARY_SUFFIX}" ; then
             OPENSSL_CFLAGS="-I${OPENSSL_DIR}/include"
@@ -606,7 +587,7 @@ AC_DEFUN([CONFIGURE_OPENSSL],
           fi
         fi
       else
-        #openssl is not found in user specified location. Abort.
+        # openssl is not found in user specified location. Abort.
         AC_MSG_RESULT([no])
         AC_MSG_ERROR([Unable to find openssl in specified location $OPENSSL_DIR])
       fi
@@ -615,7 +596,6 @@ AC_DEFUN([CONFIGURE_OPENSSL],
 
     AC_MSG_CHECKING([if we should bundle openssl])
     AC_MSG_RESULT([$BUNDLE_OPENSSL])
-
   fi
 
   AC_SUBST(OPENSSL_BUNDLE_LIB_PATH)

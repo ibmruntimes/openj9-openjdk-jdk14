@@ -23,6 +23,12 @@
  * questions.
  */
 
+/*
+ * ===========================================================================
+ * (c) Copyright IBM Corp. 2020, 2020 All Rights Reserved
+ * ===========================================================================
+ */
+
 #include "java.h"
 #include "jvm_md.h"
 #include <dirent.h>
@@ -301,6 +307,14 @@ CreateExecutionEnvironment(int *pargc, char ***pargv,
     char * jvmtype = NULL;
     int argc = *pargc;
     char **argv = *pargv;
+
+#ifdef AIX
+    const char *mallocOptionsName = "MALLOCOPTIONS";
+    const char *mallocOptionsValue = "multiheap,considersize";
+    if (setenv(mallocOptionsName, mallocOptionsValue, 0) != 0) {
+        fprintf(stderr, "setenv('MALLOCOPTIONS=multiheap,considersize') failed: performance may be affected\n");
+    }
+#endif
 
 #ifdef SETENV_REQUIRED
     jboolean mustsetenv = JNI_FALSE;
