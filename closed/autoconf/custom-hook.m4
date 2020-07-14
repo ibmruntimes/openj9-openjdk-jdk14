@@ -230,7 +230,7 @@ AC_DEFUN([OPENJ9_CONFIGURE_DDR],
     OPENJ9_ENABLE_DDR=false
   elif test "x$enable_ddr" = x ; then
     case "$OPENJ9_PLATFORM_CODE" in
-      ap64|oa64|wa64|xa64|xl64|xz64)
+      ap64|oa64|wa64|xa64|xl64|xr64|xz64)
         AC_MSG_RESULT([yes (default for $OPENJ9_PLATFORM_CODE)])
         OPENJ9_ENABLE_DDR=true
         ;;
@@ -264,6 +264,9 @@ AC_DEFUN([OPENJ9_PLATFORM_EXTRACT_VARS_FROM_CPU],
       ;;
     arm)
       OPENJ9_CPU=arm
+      ;;
+    aarch64)
+      OPENJ9_CPU=aarch64
       ;;
     *)
       AC_MSG_ERROR([unsupported OpenJ9 cpu $1])
@@ -336,10 +339,8 @@ AC_DEFUN([OPENJ9_PLATFORM_SETUP],
     fi
   elif test "x$OPENJ9_CPU" = xppc-64_le ; then
     OPENJ9_PLATFORM_CODE=xl64
-    if test "x$OPENJ9_LIBS_SUBDIR" = xdefault ; then
-      OPENJ9_BUILDSPEC="${OPENJDK_BUILD_OS}_ppc-64_le_gcc"
-    else
-      OPENJ9_BUILDSPEC="${OPENJDK_BUILD_OS}_ppc-64_cmprssptrs_le_gcc"
+    if test "x$OPENJ9_LIBS_SUBDIR" != xdefault ; then
+      OPENJ9_BUILDSPEC="${OPENJDK_BUILD_OS}_ppc-64_cmprssptrs_le"
     fi
   elif test "x$OPENJ9_CPU" = x390-64 ; then
     OPENJ9_PLATFORM_CODE=xz64
@@ -349,6 +350,11 @@ AC_DEFUN([OPENJ9_PLATFORM_SETUP],
     OPENJ9_PLATFORM_CODE=xr32
     OPENJ9_BUILDSPEC=linux_arm_linaro
     OPENJ9_LIBS_SUBDIR=default
+  elif test "x$OPENJ9_CPU" = xaarch64 ; then
+    OPENJ9_PLATFORM_CODE=xr64
+    if test "x$COMPILE_TYPE" = xcross ; then
+      OPENJ9_BUILDSPEC="${OPENJ9_BUILDSPEC}_cross"
+    fi
   else
     AC_MSG_ERROR([Unsupported OpenJ9 cpu ${OPENJ9_CPU}!])
   fi
@@ -373,12 +379,12 @@ AC_DEFUN([OPENJDK_VERSION_DETAILS],
 AC_DEFUN([OPENJ9_THIRD_PARTY_REQUIREMENTS],
 [
   # check 3rd party library requirement for UMA
-  AC_MSG_CHECKING([that freemarker location is set])
   AC_ARG_WITH(freemarker-jar, [AS_HELP_STRING([--with-freemarker-jar],
       [path to freemarker.jar (used to build OpenJ9 build tools)])])
 
   FREEMARKER_JAR=
   if test "x$OPENJ9_ENABLE_CMAKE" != xtrue ; then
+    AC_MSG_CHECKING([that freemarker location is set])
     if test "x$with_freemarker_jar" == x -o "x$with_freemarker_jar" == xno ; then
       AC_MSG_RESULT([no])
       printf "\n"
@@ -421,36 +427,33 @@ AC_DEFUN([OPENJ9_CHECK_NASM_VERSION],
   OPENJ9_PLATFORM_EXTRACT_VARS_FROM_CPU($host_cpu)
 
   if test "x$OPENJ9_CPU" = xx86-64 ; then
-    AC_CHECK_PROG(NASM_INSTALLED,nasm,yes,no)
-    if test "x$NASM_INSTALLED" = xyes ; then
-      AC_MSG_CHECKING([whether nasm version requirement is met])
+    BASIC_REQUIRE_PROGS([NASM], [nasm])
+    AC_MSG_CHECKING([whether nasm version requirement is met])
 
-      # Require NASM v2.11+. This is checked by trying to build conftest.c
-      # containing an instruction that makes use of zmm registers that are
-      # supported on NASM v2.11+
-      AC_LANG_CONFTEST([AC_LANG_SOURCE([vdivpd zmm0, zmm1, zmm3;])])
+    # Require NASM v2.11+. This is checked by trying to build conftest.c
+    # containing an instruction that makes use of zmm registers that are
+    # supported on NASM v2.11+
+    AC_LANG_CONFTEST([AC_LANG_SOURCE([vdivpd zmm0, zmm1, zmm3;])])
 
-      # the following hack is needed because conftest.c contains C preprocessor
-      # directives defined in confdefs.h that would cause nasm to error out
-      $SED -i -e '/vdivpd/!d' conftest.c
+    # the following hack is needed because conftest.c contains C preprocessor
+    # directives defined in confdefs.h that would cause nasm to error out
+    $SED -i -e '/vdivpd/!d' conftest.c
 
-      if nasm -f elf64 conftest.c 2> /dev/null ; then
-        AC_MSG_RESULT([yes])
-      else
-        # NASM version string is of the following format:
-        # ---
-        # NASM version 2.14.02 compiled on Dec 27 2018
-        # ---
-        # Some builds may not contain any text after the version number
-        #
-        # NASM_VERSION is set within square brackets so that the sed expression would not
-        # require quadrigraps to represent square brackets
-        [NASM_VERSION=`nasm -v | $SED -e 's/^.* \([2-9]\.[0-9][0-9]\.[0-9][0-9]\).*$/\1/'`]
-        AC_MSG_ERROR([nasm version detected: $NASM_VERSION; required version 2.11+])
-      fi
+    if $NASM -f elf64 conftest.c 2> /dev/null ; then
+      AC_MSG_RESULT([yes])
     else
-      AC_MSG_ERROR([nasm not found])
+      # NASM version string is of the following format:
+      # ---
+      # NASM version 2.14.02 compiled on Dec 27 2018
+      # ---
+      # Some builds may not contain any text after the version number
+      #
+      # NASM_VERSION is set within square brackets so that the sed expression would not
+      # require quadrigraps to represent square brackets
+      [NASM_VERSION=`$NASM -v | $SED -e 's/^.* \([2-9]\.[0-9][0-9]\.[0-9][0-9]\).*$/\1/'`]
+      AC_MSG_ERROR([nasm version detected: $NASM_VERSION; required version 2.11+])
     fi
+    AC_SUBST([NASM])
   fi
 ])
 
@@ -469,6 +472,13 @@ AC_DEFUN_ONCE([CUSTOM_LATE_HOOK],
 
   # explicitly disable classlist generation
   ENABLE_GENERATE_CLASSLIST=false
+
+  if test "x$OPENJDK_BUILD_OS" = xwindows ; then
+    OPENJ9_TOOL_DIR="$OUTPUTDIR/tools"
+    AC_SUBST([OPENJ9_TOOL_DIR])
+    OPENJ9_GENERATE_TOOL_WRAPPERS
+    AC_CONFIG_FILES([$OUTPUTDIR/toolchain-win.cmake:$CLOSED_AUTOCONF_DIR/toolchain-win.cmake.in])
+  fi
 ])
 
 AC_DEFUN([CONFIGURE_OPENSSL],
@@ -603,4 +613,38 @@ AC_DEFUN([CONFIGURE_OPENSSL],
   AC_SUBST(WITH_OPENSSL)
   AC_SUBST(BUILD_OPENSSL)
   AC_SUBST(OPENSSL_CFLAGS)
+])
+
+# Create a tool wrapper for use by cmake.
+# Consists of a shell script which wraps commands with an invocation of fixpath.
+# OPENJ9_GENERATE_TOOL_WRAPER(<name_of_wrapper>, <command_to_call>)
+AC_DEFUN([OPENJ9_GENERATE_TOOL_WRAPPER],
+[
+  tool_file="$OPENJ9_TOOL_DIR/$1"
+
+  echo "#!/bin/sh" > $tool_file
+  # We need to insert an empty string ([]), to stop M4 treating "$@" as a
+  # variable reference
+  printf '%s "%s" "$[]@"\n' "$FIXPATH" "$2" >> $tool_file
+  chmod +x $tool_file
+])
+
+# Generate all the tool wrappers required for cmake on windows
+AC_DEFUN([OPENJ9_GENERATE_TOOL_WRAPPERS],
+[
+  MSVC_BIN_DIR=$($DIRNAME $CC)
+  SDK_BIN_DIR=$($DIRNAME $RC)
+
+  mkdir -p "$OPENJ9_TOOL_DIR"
+  OPENJ9_GENERATE_TOOL_WRAPPER([cl], [$CC])
+  OPENJ9_GENERATE_TOOL_WRAPPER([lib], [$AR])
+  OPENJ9_GENERATE_TOOL_WRAPPER([link], [$LD])
+  OPENJ9_GENERATE_TOOL_WRAPPER([ml], [$MSVC_BIN_DIR/ml])
+  OPENJ9_GENERATE_TOOL_WRAPPER([ml64], [$MSVC_BIN_DIR/ml64])
+  OPENJ9_GENERATE_TOOL_WRAPPER([rc], [$RC])
+  OPENJ9_GENERATE_TOOL_WRAPPER([mc], [$SDK_BIN_DIR/mc])
+  OPENJ9_GENERATE_TOOL_WRAPPER([nasm], [$NASM])
+  OPENJ9_GENERATE_TOOL_WRAPPER([java], [$JAVA])
+  OPENJ9_GENERATE_TOOL_WRAPPER([jar], [$JAR])
+  OPENJ9_GENERATE_TOOL_WRAPPER([javac], [$JAVAC])
 ])

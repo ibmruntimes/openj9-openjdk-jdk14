@@ -37,6 +37,9 @@
 no_default :
 	$(error DDR.gmk has no default target)
 
+# ignore warnings in Java code - see SetupJavaCompilers.gmk
+JAVAC_WARNINGS := -Xlint:-removal
+
 include $(SPEC)
 include $(TOPDIR)/make/common/MakeBase.gmk
 include $(TOPDIR)/make/common/JavaCompilation.gmk
@@ -152,10 +155,10 @@ ifeq (zos,$(OPENJDK_TARGET_OS))
 
 BUILD_DDR_STUBS :=
 
-# Finally, on z/OS we depend upon the com.ibm.jzos module.
+# Finally, on z/OS we depend upon the ibm.jzos module.
 DDR_CLASSPATH += \
 	$(addprefix $(JDK_OUTPUTDIR)/modules/, \
-		com.ibm.jzos \
+		ibm.jzos \
 	)
 
 else # OPENJDK_TARGET_OS
@@ -165,7 +168,7 @@ $(eval $(call SetupJavaCompilation,BUILD_DDR_STUBS, \
 	SETUP := GENERATE_USINGJDKBYTECODE, \
 	BIN := $(DDR_STUBS_BIN), \
 	CLASSPATH := $(JDK_OUTPUTDIR)/modules/java.base, \
-	SRC := $(OPENJ9_TOPDIR)/jcl/src/com.ibm.jzos/share/classes \
+	SRC := $(OPENJ9_TOPDIR)/jcl/src/ibm.jzos/share/classes \
 	))
 
 # Finally, we depend upon the stub classes.
@@ -185,7 +188,7 @@ DDR_ALIAS_FILES := \
 # Compile the Java sources.
 $(eval $(call SetupJavaCompilation,BUILD_J9DDR_MAIN_CLASSES, \
 	SETUP := GENERATE_JDKBYTECODE, \
-	ADD_JAVAC_FLAGS := --upgrade-module-path $(JDK_OUTPUTDIR)/modules, \
+	ADD_JAVAC_FLAGS := --upgrade-module-path $(JDK_OUTPUTDIR)/modules --system none, \
 	BIN := $(DDR_MAIN_BIN), \
 	CLASSPATH := $(DDR_CLASSPATH), \
 	SRC := $(DDR_VM_SRC_ROOT) $(DDR_GENSRC_DIR), \
@@ -198,7 +201,7 @@ $(eval $(call SetupJavaCompilation,BUILD_J9DDR_MAIN_CLASSES, \
 # as they would be dynamically generated from the blob.
 $(eval $(call SetupJavaCompilation,BUILD_J9DDR_TEST_CLASSES, \
 	SETUP := GENERATE_JDKBYTECODE, \
-	ADD_JAVAC_FLAGS := --upgrade-module-path $(JDK_OUTPUTDIR)/modules, \
+	ADD_JAVAC_FLAGS := --upgrade-module-path $(JDK_OUTPUTDIR)/modules --system none, \
 	BIN := $(DDR_TEST_BIN), \
 	CLASSPATH := $(DDR_CLASSES_BIN) $(DDR_CLASSPATH), \
 	SRC := $(DDR_VM_SRC_ROOT), \
